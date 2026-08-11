@@ -37,6 +37,34 @@ function createSelfDestructWeapon(weaponName, damage, radius) {
     return selfDestruct;
 }
 
+// Helper function to safely spawn a modified unit instance next to the player
+function spawnNukeUnit(baseType, weaponName, damage, radius, applyBuffs) {
+    var player = Vars.player;
+    if (!player || !player.unit()) return;
+
+    // Create a fresh instance of the base unit type for the player's team
+    var unit = baseType.create(player.team());
+    unit.set(player.x + 20, player.y + 20);
+
+    // Create the nuclear weapon and attach it to the unit instance mount
+    var nukeWeapon = createSelfDestructWeapon(weaponName, damage, radius);
+    unit.mounts[0] = new WeaponMount(nukeWeapon);
+
+    // If buffs are requested (e.g. Buffed Crawler), attach Oct & Aegires abilities
+    if (applyBuffs) {
+        var abilitiesSeq = new Seq();
+
+        // Collect abilities from Oct and Aegires
+        UnitTypes.oct.abilities.each(a => abilitiesSeq.add(a));
+        UnitTypes.aegires.abilities.each(a => abilitiesSeq.add(a));
+
+        // Cast Seq to native Java Ability[] array for the live unit instance
+        unit.abilities = abilitiesSeq.toArray(Packages.mindustry.entities.abilities.Ability);
+    }
+
+    unit.add();
+}
+
 // ==========================================
 // Sidebar UI Class
 // ==========================================
@@ -228,35 +256,23 @@ var sidebar = {
                 nuclearTable.left();
                 nuclearTable.margin(0, 10, 0, 0);
 
-                // --- Standard Crawler ---
-                var crawlerBtn = nuclearTable.button("- Crawler", Styles.cleart, function() {
-                    var nukeWeapon = createSelfDestructWeapon("crawler-nuke", 10000, 100);
-                    UnitTypes.crawler.weapons.clear();
-                    UnitTypes.crawler.weapons.add(nukeWeapon);
+                // --- Standard Nuclear Crawler ---
+                var crawlerBtn = nuclearTable.button("- Spawn Nuke Crawler", Styles.cleart, function() {
+                    spawnNukeUnit(UnitTypes.crawler, "crawler-nuke", 10000, 100, false);
                 }).width(210).height(35);
                 crawlerBtn.padBottom(3);
                 nuclearTable.row();
 
-                // --- Buffed Crawler (Nuke + Oct Shield + Aegires Buffs) ---
-                var buffedCrawlerBtn = nuclearTable.button("- Buffed Crawler", Styles.cleart, function() {
-                    var nukeWeapon = createSelfDestructWeapon("crawler-buffed-nuke", 10000, 120);
-                    UnitTypes.crawler.weapons.clear();
-                    UnitTypes.crawler.weapons.add(nukeWeapon);
-
-                    // Add Oct Abilities (Shield)
-                    UnitTypes.oct.abilities.each(a => UnitTypes.crawler.abilities.add(a));
-
-                    // Add Aegires Abilities (Field Buffs)
-                    UnitTypes.aegires.abilities.each(a => UnitTypes.crawler.abilities.add(a));
+                // --- Buffed Nuclear Crawler (Oct Shield + Aegires Fields) ---
+                var buffedCrawlerBtn = nuclearTable.button("- Spawn Buffed Crawler", Styles.cleart, function() {
+                    spawnNukeUnit(UnitTypes.crawler, "crawler-buffed-nuke", 10000, 120, true);
                 }).width(210).height(35);
                 buffedCrawlerBtn.padBottom(3);
                 nuclearTable.row();
 
-                // --- Horizon ---
-                var horizonBtn = nuclearTable.button("- Horizon", Styles.cleart, function() {
-                    var nukeWeapon = createSelfDestructWeapon("horizon-nuke", 10000, 120);
-                    UnitTypes.horizon.weapons.clear();
-                    UnitTypes.horizon.weapons.add(nukeWeapon);
+                // --- Nuclear Horizon ---
+                var horizonBtn = nuclearTable.button("- Spawn Nuke Horizon", Styles.cleart, function() {
+                    spawnNukeUnit(UnitTypes.horizon, "horizon-nuke", 10000, 120, false);
                 }).width(210).height(35);
                 horizonBtn.padBottom(3);
                 nuclearTable.row();
