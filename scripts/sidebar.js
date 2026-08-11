@@ -5,7 +5,7 @@ function createSelfDestructWeapon(weaponName, damage, radius) {
     var wave = new WaveEffect();
     wave.lifetime = 10;
     wave.strokeTo = 20;
-    wave.sizeTo = 90;
+    wave.sizeTo = 70;
 
     var explosionEffect = new MultiEffect(Fx.reactorExplosion, wave);
 
@@ -19,7 +19,7 @@ function createSelfDestructWeapon(weaponName, damage, radius) {
     explosion.killShooter = true; // Kills unit on fire
     explosion.despawnHit = true;
     explosion.splashDamage = damage || 10000;
-    explosion.splashDamageRadius = radius || 100;
+    explosion.splashDamageRadius = radius || 200;
     explosion.hitEffect = explosionEffect;
 
     var selfDestruct = new Weapon(weaponName || "self-destruct");
@@ -35,6 +35,20 @@ function createSelfDestructWeapon(weaponName, damage, radius) {
     selfDestruct.load();
 
     return selfDestruct;
+}
+
+// Helper function to apply target unit type's weapons and abilities to player unit
+function applyWeaponsAndAbilities(targetUnitType) {
+    var playerUnit = Vars.player ? Vars.player.unit() : null;
+    if (!playerUnit || !targetUnitType) return;
+
+    // 1. Copy Weapons
+    playerUnit.setupWeapons(targetUnitType);
+
+    // 2. Copy Abilities
+    var abilitiesSeq = new Seq();
+    targetUnitType.abilities.each(a => abilitiesSeq.add(a));
+    playerUnit.abilities = abilitiesSeq.toArray(Packages.mindustry.entities.abilities.Ability);
 }
 
 // Helper function to safely spawn a modified nuclear unit instance next to the player
@@ -56,6 +70,16 @@ function spawnNukeUnit(baseType, weaponName, damage, radius, applyBuffs) {
     }
 
     unit.add();
+
+    // Force explosion upon touching/colliding with enemy structures (like the Core) or units
+    Timer.schedule(() => {
+        if (!unit.isAdded() || unit.dead) return;
+
+        var tile = Vars.world.tileWorld(unit.x, unit.y);
+        if (tile && tile.build && tile.build.team != unit.team) {
+            unit.kill(); // Trigger shootOnDeath nuclear blast!
+        }
+    }, 0, 0.1);
 }
 
 // Helper function to safely spawn a Crawler with Reign weapons + ranged AI
@@ -83,6 +107,42 @@ function spawnReigires() {
     unit.abilities = abilitiesSeq.toArray(Packages.mindustry.entities.abilities.Ability);
 
     unit.add();
+}
+
+// Helper function to spawn B2 Bomber (Quad dropping nuclear bombs)
+function spawnB2Bomber() {
+    var player = Vars.player;
+    if (!player || !player.unit()) return;
+
+    var wave = new WaveEffect();
+    wave.lifetime = 15;
+    wave.strokeTo = 25;
+    wave.sizeTo = 110;
+
+    var explosionEffect = new MultiEffect(Fx.reactorExplosion, wave);
+
+    var baseBomb = UnitTypes.quad.weapons.get(0).bullet;
+    var nukeBomb = baseBomb.copy();
+    nukeBomb.hitSound = Sounds.explosion;
+    nukeBomb.despawnHit = true;
+    nukeBomb.splashDamage = 10000;
+    nukeBomb.splashDamageRadius = 140;
+    nukeBomb.hitEffect = explosionEffect;
+    nukeBomb.despawnEffect = explosionEffect;
+
+    var baseWeapon = UnitTypes.quad.weapons.get(0);
+    var nukeDrop = new Weapon("quad-nuke-drop");
+    nukeDrop.reload = 180; // 3 seconds
+    nukeDrop.x = baseWeapon.x;
+    nukeDrop.y = baseWeapon.y;
+    nukeDrop.shootSound = baseWeapon.shootSound;
+    nukeDrop.bullet = nukeBomb;
+    nukeDrop.load();
+
+    var quad = UnitTypes.quad.create(player.team());
+    quad.set(player.x + 20, player.y + 20);
+    quad.mounts[0] = new WeaponMount(nukeDrop);
+    quad.add();
 }
 
 // Helper function to kill active units
@@ -134,9 +194,9 @@ var sidebar = {
             panel.row();
 
             // ==========================================
-            // MAIN GROUP 1: "Use Unit Weapons"
+            // MAIN GROUP 1: "Use Weapons & Abilities"
             // ==========================================
-            var groupBtnText = (this.showWeaponsGroup ? "v " : "> ") + "Use Unit Weapons";
+            var groupBtnText = (this.showWeaponsGroup ? "v " : "> ") + "Use Weapons & Abilities";
             var groupBtn = panel.button(groupBtnText, Styles.cleart, function() {
                 self.showWeaponsGroup = !self.showWeaponsGroup;
                 self.rebuild();
@@ -144,7 +204,7 @@ var sidebar = {
             groupBtn.padBottom(6);
             panel.row();
 
-            // --- WEAPONS SUB-CONTENT ---
+            // --- WEAPONS & ABILITIES SUB-CONTENT ---
             if (this.showWeaponsGroup) {
                 var weaponsTable = new Table();
                 weaponsTable.left();
@@ -193,6 +253,7 @@ var sidebar = {
                         { name: "Poly", type: UnitTypes.poly },
                         { name: "Mega", type: UnitTypes.mega },
                         { name: "Quad", type: UnitTypes.quad },
+                        { name: "Oct", type: UnitTypes.oct },
 
                         { name: "Risso", type: UnitTypes.risso },
                         { name: "Minke", type: UnitTypes.minke },
@@ -203,14 +264,13 @@ var sidebar = {
                         { name: "Retusa", type: UnitTypes.retusa },
                         { name: "Oxynoe", type: UnitTypes.oxynoe },
                         { name: "Cyrus", type: UnitTypes.cyerce },
+                        { name: "Aegires", type: UnitTypes.aegires },
                         { name: "Navanax", type: UnitTypes.navanax }
                     ];
 
                     serpuloUnits.forEach(function(u) {
                         var uBtn = serpuloTable.button("- " + u.name, Styles.cleart, function() {
-                            if (Vars.player.unit() && u.type) {
-                                Vars.player.unit().setupWeapons(u.type);
-                            }
+                            applyWeaponsAndAbilities(u.type);
                         }).width(190).height(35);
                         uBtn.padBottom(3);
                         serpuloTable.row();
@@ -257,9 +317,7 @@ var sidebar = {
 
                     erekirUnits.forEach(function(u) {
                         var uBtn = erekirTable.button("- " + u.name, Styles.cleart, function() {
-                            if (Vars.player.unit() && u.type) {
-                                Vars.player.unit().setupWeapons(u.type);
-                            }
+                            applyWeaponsAndAbilities(u.type);
                         }).width(190).height(35);
                         uBtn.padBottom(3);
                         erekirTable.row();
@@ -320,6 +378,13 @@ var sidebar = {
                     spawnReigires();
                 }).width(210).height(35);
                 reigiresBtn.padBottom(3);
+                nuclearTable.row();
+
+                // --- B2 Bomber ---
+                var b2BomberBtn = nuclearTable.button("- B2 Bomber", Styles.cleart, function() {
+                    spawnB2Bomber();
+                }).width(210).height(35);
+                b2BomberBtn.padBottom(3);
                 nuclearTable.row();
 
                 panel.add(nuclearTable).left().padBottom(8).row();
