@@ -74,6 +74,7 @@ var sidebar = {
     showNuclearGroup: false,
     showSerpuloGroup: false,
     showErekirGroup: false,
+    showTeamsGroup: false,
     container: null,
 
     build: function() {
@@ -278,6 +279,47 @@ var sidebar = {
                 nuclearTable.row();
 
                 panel.add(nuclearTable).left().padBottom(8).row();
+            }
+
+            // ==========================================
+            // MAIN GROUP 3: "Change Teams"
+            // ==========================================
+            var teamsBtnText = (this.showTeamsGroup ? "v " : "> ") + "Change Teams";
+            var teamsBtn = panel.button(teamsBtnText, Styles.cleart, function() {
+                self.showTeamsGroup = !self.showTeamsGroup;
+                self.rebuild();
+            }).width(240).height(45);
+            teamsBtn.padBottom(6);
+            panel.row();
+
+            if (this.showTeamsGroup) {
+                var teamsTable = new Table();
+                teamsTable.left();
+                teamsTable.margin(0, 10, 0, 0);
+
+                var teams = [
+                    { name: "Derelict", team: Team.derelict },
+                    { name: "Sharded (Yellow)", team: Team.sharded },
+                    { name: "Crux (Red)", team: Team.crux },
+                    { name: "Malis (Purple)", team: Team.malis },
+                    { name: "Green", team: Team.green },
+                    { name: "Blue", team: Team.blue }
+                ];
+
+                teams.forEach(function(t) {
+                    var tBtn = teamsTable.button("- " + t.name, Styles.cleart, function() {
+                        if (Vars.player) {
+                            Vars.player.team(t.team);
+                            if (Vars.player.unit()) {
+                                Vars.player.unit().team = t.team;
+                            }
+                        }
+                    }).width(210).height(35);
+                    tBtn.padBottom(3);
+                    teamsTable.row();
+                });
+
+                panel.add(teamsTable).left().padBottom(8).row();
             }
 
             // Scrollable Container
