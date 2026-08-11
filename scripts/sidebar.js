@@ -233,10 +233,6 @@ var sidebar = {
                     var nukeWeapon = createSelfDestructWeapon("crawler-nuke", 10000, 100);
                     UnitTypes.crawler.weapons.clear();
                     UnitTypes.crawler.weapons.add(nukeWeapon);
-                    
-                    if (Vars.player.unit()) {
-                        Vars.player.unit().setupWeapons(UnitTypes.crawler);
-                    }
                 }).width(210).height(35);
                 crawlerBtn.padBottom(3);
                 nuclearTable.row();
@@ -252,13 +248,6 @@ var sidebar = {
 
                     // Add Aegires Abilities (Field Buffs)
                     UnitTypes.aegires.abilities.each(a => UnitTypes.crawler.abilities.add(a));
-
-                    var p = Vars.player.unit();
-                    if (p) {
-                        p.setupWeapons(UnitTypes.crawler);
-                        // Safely cast array so active live unit displays the shield and field immediately
-                        p.abilities = p.type.abilities.toArray(Packages.mindustry.entities.abilities.Ability);
-                    }
                 }).width(210).height(35);
                 buffedCrawlerBtn.padBottom(3);
                 nuclearTable.row();
@@ -268,10 +257,6 @@ var sidebar = {
                     var nukeWeapon = createSelfDestructWeapon("horizon-nuke", 10000, 120);
                     UnitTypes.horizon.weapons.clear();
                     UnitTypes.horizon.weapons.add(nukeWeapon);
-
-                    if (Vars.player.unit()) {
-                        Vars.player.unit().setupWeapons(UnitTypes.horizon);
-                    }
                 }).width(210).height(35);
                 horizonBtn.padBottom(3);
                 nuclearTable.row();
