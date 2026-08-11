@@ -37,32 +37,61 @@ function createSelfDestructWeapon(weaponName, damage, radius) {
     return selfDestruct;
 }
 
-// Helper function to safely spawn a modified unit instance next to the player
+// Helper function to safely spawn a modified nuclear unit instance next to the player
 function spawnNukeUnit(baseType, weaponName, damage, radius, applyBuffs) {
     var player = Vars.player;
     if (!player || !player.unit()) return;
 
-    // Create a fresh instance of the base unit type for the player's team
     var unit = baseType.create(player.team());
     unit.set(player.x + 20, player.y + 20);
 
-    // Create the nuclear weapon and attach it to the unit instance mount
     var nukeWeapon = createSelfDestructWeapon(weaponName, damage, radius);
     unit.mounts[0] = new WeaponMount(nukeWeapon);
 
-    // If buffs are requested (e.g. Buffed Crawler), attach Oct & Aegires abilities
     if (applyBuffs) {
         var abilitiesSeq = new Seq();
-
-        // Collect abilities from Oct and Aegires
         UnitTypes.oct.abilities.each(a => abilitiesSeq.add(a));
         UnitTypes.aegires.abilities.each(a => abilitiesSeq.add(a));
-
-        // Cast Seq to native Java Ability[] array for the live unit instance
         unit.abilities = abilitiesSeq.toArray(Packages.mindustry.entities.abilities.Ability);
     }
 
     unit.add();
+}
+
+// Helper function to safely spawn a Crawler with Reign weapons + ranged AI
+function spawnReignCrawler() {
+    var player = Vars.player;
+    if (!player || !player.unit()) return;
+
+    var unit = UnitTypes.crawler.create(player.team());
+    unit.set(player.x + 20, player.y + 20);
+    unit.setupWeapons(UnitTypes.reign);
+    unit.controller(new GroundAI());
+    unit.add();
+}
+
+// Helper function to spawn a Reign with Aegires status/heal field abilities
+function spawnReigires() {
+    var player = Vars.player;
+    if (!player || !player.unit()) return;
+
+    var unit = UnitTypes.reign.create(player.team());
+    unit.set(player.x + 20, player.y + 20);
+
+    var abilitiesSeq = new Seq();
+    UnitTypes.aegires.abilities.each(a => abilitiesSeq.add(a));
+    unit.abilities = abilitiesSeq.toArray(Packages.mindustry.entities.abilities.Ability);
+
+    unit.add();
+}
+
+// Helper function to kill active units
+function killUnitsByTeam(targetTeam) {
+    Groups.unit.each(u => {
+        if (targetTeam === null || u.team === targetTeam) {
+            u.kill();
+        }
+    });
 }
 
 // ==========================================
@@ -75,6 +104,7 @@ var sidebar = {
     showSerpuloGroup: false,
     showErekirGroup: false,
     showTeamsGroup: false,
+    showKillGroup: false,
     container: null,
 
     build: function() {
@@ -242,9 +272,9 @@ var sidebar = {
             }
 
             // ==========================================
-            // MAIN GROUP 2: "Nuclear Units"
+            // MAIN GROUP 2: "Spawn Nuclear Units"
             // ==========================================
-            var nuclearBtnText = (this.showNuclearGroup ? "v " : "> ") + "Nuclear Units";
+            var nuclearBtnText = (this.showNuclearGroup ? "v " : "> ") + "Spawn Nuclear Units";
             var nuclearBtn = panel.button(nuclearBtnText, Styles.cleart, function() {
                 self.showNuclearGroup = !self.showNuclearGroup;
                 self.rebuild();
@@ -257,25 +287,39 @@ var sidebar = {
                 nuclearTable.left();
                 nuclearTable.margin(0, 10, 0, 0);
 
-                // --- Standard Nuclear Crawler ---
-                var crawlerBtn = nuclearTable.button("- Spawn Nuke Crawler", Styles.cleart, function() {
+                // --- Standard Nuke Crawler ---
+                var crawlerBtn = nuclearTable.button("- Nuke Crawler", Styles.cleart, function() {
                     spawnNukeUnit(UnitTypes.crawler, "crawler-nuke", 10000, 100, false);
                 }).width(210).height(35);
                 crawlerBtn.padBottom(3);
                 nuclearTable.row();
 
-                // --- Buffed Nuclear Crawler (Oct Shield + Aegires Fields) ---
-                var buffedCrawlerBtn = nuclearTable.button("- Spawn Buffed Crawler", Styles.cleart, function() {
+                // --- Buffed Nuke Crawler (Oct Shield + Aegires Fields) ---
+                var buffedCrawlerBtn = nuclearTable.button("- Buffed Nuke Crawler", Styles.cleart, function() {
                     spawnNukeUnit(UnitTypes.crawler, "crawler-buffed-nuke", 10000, 120, true);
                 }).width(210).height(35);
                 buffedCrawlerBtn.padBottom(3);
                 nuclearTable.row();
 
-                // --- Nuclear Horizon ---
-                var horizonBtn = nuclearTable.button("- Spawn Nuke Horizon", Styles.cleart, function() {
+                // --- Nuke Horizon ---
+                var horizonBtn = nuclearTable.button("- Nuke Horizon", Styles.cleart, function() {
                     spawnNukeUnit(UnitTypes.horizon, "horizon-nuke", 10000, 120, false);
                 }).width(210).height(35);
                 horizonBtn.padBottom(3);
+                nuclearTable.row();
+
+                // --- Reign Crawler ---
+                var reignCrawlerBtn = nuclearTable.button("- Reign Crawler", Styles.cleart, function() {
+                    spawnReignCrawler();
+                }).width(210).height(35);
+                reignCrawlerBtn.padBottom(3);
+                nuclearTable.row();
+
+                // --- Reigires ---
+                var reigiresBtn = nuclearTable.button("- Reigires", Styles.cleart, function() {
+                    spawnReigires();
+                }).width(210).height(35);
+                reigiresBtn.padBottom(3);
                 nuclearTable.row();
 
                 panel.add(nuclearTable).left().padBottom(8).row();
@@ -320,6 +364,52 @@ var sidebar = {
                 });
 
                 panel.add(teamsTable).left().padBottom(8).row();
+            }
+
+            // ==========================================
+            // MAIN GROUP 4: "Kill Units"
+            // ==========================================
+            var killBtnText = (this.showKillGroup ? "v " : "> ") + "Kill Units";
+            var killBtn = panel.button(killBtnText, Styles.cleart, function() {
+                self.showKillGroup = !self.showKillGroup;
+                self.rebuild();
+            }).width(240).height(45);
+            killBtn.padBottom(6);
+            panel.row();
+
+            if (this.showKillGroup) {
+                var killTable = new Table();
+                killTable.left();
+                killTable.margin(0, 10, 0, 0);
+
+                // Kill All Units
+                var killAllBtn = killTable.button("- All Units", Styles.cleart, function() {
+                    killUnitsByTeam(null);
+                }).width(210).height(35);
+                killAllBtn.padBottom(3);
+                killTable.row();
+
+                // Kill By Specific Teams
+                var killTeams = [
+                    { name: "My Team", team: function() { return Vars.player ? Vars.player.team() : null; } },
+                    { name: "Derelict", team: function() { return Team.derelict; } },
+                    { name: "Sharded (Yellow)", team: function() { return Team.sharded; } },
+                    { name: "Crux (Red)", team: function() { return Team.crux; } },
+                    { name: "Malis (Purple)", team: function() { return Team.malis; } },
+                    { name: "Green", team: function() { return Team.green; } },
+                    { name: "Blue", team: function() { return Team.blue; } }
+                ];
+
+                killTeams.forEach(function(kt) {
+                    var ktBtn = killTable.button("- " + kt.name, Styles.cleart, function() {
+                        var target = kt.team();
+                        if (target) killUnitsByTeam(target);
+                    }).width(210).height(35);
+                    ktBtn.padBottom(3);
+                    killTable.row();
+                });
+
+                panel.add(killTable).left().padBottom(8).row();
             }
 
             // Scrollable Container
